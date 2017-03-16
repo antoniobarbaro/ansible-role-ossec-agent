@@ -1,0 +1,43 @@
+---
+# tasks file for ossec-server
+- name: Install epel repo
+  yum: state=latest name={{ item }}
+  with_items:
+    - epel-release
+
+- name: Install xmlstarlet
+  yum: state=latest name=xmlstarlet
+
+- name: Download atomic repository
+  get_url: 
+    url: http://www.atomicorp.com/installers/atomic 
+    mode: u+rwx
+    dest: /tmp/atomic-repo-installer.sh
+
+- name: Install atomic repository
+  command: /tmp/atomic-repo-installer.sh
+  environment:
+    NON_INT: 1
+  register: command_result
+  failed_when: "'Error' in command_result.stderr"
+# da verificare l'effettivo messaggio di errore quando fallisce
+# il comando manuale: wget -q -O - http://www.atomicorp.com/installers/atomic | sh
+# impostando export NON_INT=1 non vengono fatte le domande
+
+- name: Install ossec-hids-client
+  yum: pkg=ossec-hids-client
+       state=present
+
+- name: delete comment line with xml syntax error in ossec.conf
+  lineinfile:
+    dest: /var/ossec/etc/ossec-agent.conf
+    state: absent
+    regexp: '^ *<!-- Frequency'
+# Attenzione dalla versione 2.3 e' stato cambiato il parametro dest a path
+
+
+- name: Change ossec server ip
+  command: "xmlstarlet edit --inplace --omit-decl --update '/ossec_config/client/server-ip' --value '{{ ossec_server_ip }}' /var/ossec/etc/ossec-agent.conf"
+#  notify: restart ossec
+
+
